@@ -97,7 +97,7 @@ runs:
           fi
           
           # Create the tag
-          git tag -a $NEW_TAG # -m "$NEW_TAG"
+          git tag -a $NEW_TAG -m "$NEW_TAG"
           echo "Tag $NEW_TAG created"
           
           # Push the tag
