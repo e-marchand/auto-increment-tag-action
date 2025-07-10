@@ -1,0 +1,131 @@
+name: 'Auto Increment Tag Action'
+description: 'Automatically create and push release tags based on branch names with incremental versioning'
+author: 'Eric Marchand'
+
+branding:
+  icon: 'tag'
+  color: 'blue'
+
+inputs:
+  branch:
+    description: 'Branch to create tag for (leave empty for current branch)'
+    required: false
+    default: ''
+  tag_prefix:
+    description: 'Tag prefix to use instead of branch name (leave empty to use branch name)'
+    required: false
+    default: ''
+  git_user_name:
+    description: 'Git user name for commits (default: github-actions[bot])'
+    required: false
+    default: 'github-actions[bot]'
+  git_user_email:
+    description: 'Git user email for commits (default: github-actions[bot]@users.noreply.github.com)'
+    required: false
+    default: 'github-actions[bot]@users.noreply.github.com'
+  github_token:
+    description: 'GitHub token with contents:write permission'
+    required: true
+
+outputs:
+  tag:
+    description: 'The tag that was created or found'
+    value: ${{ steps.create-tag.outputs.tag }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Git
+      shell: bash
+      run: |
+        git config --global user.name "${{ inputs.git_user_name }}"
+        git config --global user.email "${{ inputs.git_user_email }}"
+
+    - name: Create and push tag
+      id: create-tag
+      shell: bash
+      run: |
+        # Get current branch name
+        if [ -n "${{ inputs.branch }}" ]; then
+          BRANCH_NAME="${{ inputs.branch }}"
+        else
+          BRANCH_NAME=$(git branch --show-current)
+        fi
+        
+        echo "Current branch: $BRANCH_NAME"
+        
+        # Use tag_prefix if provided, otherwise use branch name
+        if [ -n "${{ inputs.tag_prefix }}" ]; then
+          TAG_PREFIX="${{ inputs.tag_prefix }}"
+          echo "Using provided tag prefix: $TAG_PREFIX"
+        else
+          TAG_PREFIX="$BRANCH_NAME"
+          echo "Using branch name as tag prefix: $TAG_PREFIX"
+        fi
+        
+        # Get current commit
+        CURRENT_COMMIT=$(git rev-parse HEAD)
+        echo "Current commit: $CURRENT_COMMIT"
+        
+        # Check if there's already a tag with format TAG_PREFIX.* on the current commit
+        EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | head -1 || true)
+        
+        if [ -n "$EXISTING_BRANCH_TAG" ]; then
+          echo "Existing tag found on current commit: $EXISTING_BRANCH_TAG"
+          TAG_TO_USE=$EXISTING_BRANCH_TAG
+          echo "No new tag needed, using existing tag: $TAG_TO_USE"
+        else
+          echo "No tag with format ${TAG_PREFIX}.* found on current commit, creating new tag"
+          
+          # List existing tags for this prefix (format: TAG_PREFIX.*)
+          EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | sort -V)
+          
+          if [ -z "$EXISTING_TAGS" ]; then
+            # First tag for this prefix
+            NEW_TAG="${TAG_PREFIX}.1"
+            echo "First tag for prefix: $NEW_TAG"
+          else
+            # Find the highest tag and increment
+            HIGHEST_TAG=$(echo "$EXISTING_TAGS" | tail -1)
+            echo "Highest existing tag: $HIGHEST_TAG"
+            
+            # Extract the number and increment
+            LAST_NUMBER=$(echo $HIGHEST_TAG | cut -d'.' -f2)
+            NEW_NUMBER=$((LAST_NUMBER + 1))
+            NEW_TAG="${TAG_PREFIX}.${NEW_NUMBER}"
+            echo "New tag calculated: $NEW_TAG"
+          fi
+          
+          # Create the tag
+          git tag -a $NEW_TAG # -m "$NEW_TAG"
+          echo "Tag $NEW_TAG created"
+          
+          # Push the tag
+          git push origin $NEW_TAG
+          echo "Tag $NEW_TAG pushed to origin"
+          
+          TAG_TO_USE=$NEW_TAG
+        fi
+        
+        echo "Final tag used: $TAG_TO_USE"
+        
+        # Ensure the tag is pushed (in case it was created but not pushed)
+        git push origin $TAG_TO_USE || echo "Tag $TAG_TO_USE already exists on remote"
+        
+        # Set output for potential use in other steps
+        echo "tag=$TAG_TO_USE" >> $GITHUB_OUTPUT
+        
+        # Create a summary
+        echo "## Release Tag Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag Prefix**: $TAG_PREFIX" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: $CURRENT_COMMIT" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tag**: $TAG_TO_USE" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$TAG_TO_USE" = "$NEW_TAG" ]; then
+          echo "- **Action**: New tag created and pushed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Action**: Using existing tag (no new tag needed)" >> $GITHUB_STEP_SUMMARY
+        fi
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
