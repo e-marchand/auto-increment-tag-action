@@ -49,125 +49,13 @@ runs:
       id: create-tag
       shell: bash
       run: |
-        # Get current branch name
-        if [ -n "${{ inputs.branch }}" ]; then
-          BRANCH_NAME="${{ inputs.branch }}"
-        else
-          BRANCH_NAME=$(git branch --show-current)
-        fi
-        
-        echo "Current branch: $BRANCH_NAME"
-        
-        # Use tag_prefix if provided, otherwise use branch name
-        if [ -n "${{ inputs.tag_prefix }}" ]; then
-          TAG_PREFIX="${{ inputs.tag_prefix }}"
-          echo "Using provided tag prefix: $TAG_PREFIX"
-        else
-          TAG_PREFIX="$BRANCH_NAME"
-          echo "Using branch name as tag prefix: $TAG_PREFIX"
-        fi
-        
-        # Set tag suffix if provided
-        TAG_SUFFIX="${{ inputs.tag_suffix }}"
-        if [ -n "$TAG_SUFFIX" ]; then
-          echo "Using tag suffix: $TAG_SUFFIX"
-        fi
-        
-        # Get current commit
-        CURRENT_COMMIT=$(git rev-parse HEAD)
-        echo "Current commit: $CURRENT_COMMIT"
-        
-        # Check if there's already a tag with format TAG_PREFIX.* on the current commit
-        TAG_PATTERN="${TAG_PREFIX}.*"
-        if [ -n "$TAG_SUFFIX" ]; then
-          TAG_PATTERN="${TAG_PREFIX}.*${TAG_SUFFIX}"
-        fi
-        
-        if [ -n "$TAG_SUFFIX" ]; then
-          # Escape special characters in TAG_SUFFIX for grep
-          ESCAPED_SUFFIX=$(echo "$TAG_SUFFIX" | sed 's/[[\.*^$()+?{|]/\\&/g')
-          EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | grep -- "${ESCAPED_SUFFIX}$" | head -1 || true)
-        else
-          EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | head -1 || true)
-        fi
-        
-        if [ -n "$EXISTING_BRANCH_TAG" ]; then
-          echo "Existing tag found on current commit: $EXISTING_BRANCH_TAG"
-          TAG_TO_USE=$EXISTING_BRANCH_TAG
-          echo "No new tag needed, using existing tag: $TAG_TO_USE"
-        else
-          echo "No tag with format ${TAG_PREFIX}.*${TAG_SUFFIX} found on current commit, creating new tag"
-          
-          # List existing tags for this prefix and suffix combination
-          if [ -n "$TAG_SUFFIX" ]; then
-            # Escape special characters in TAG_SUFFIX for grep
-            ESCAPED_SUFFIX=$(echo "$TAG_SUFFIX" | sed 's/[[\.*^$()+?{|]/\\&/g')
-            EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | grep -- "${ESCAPED_SUFFIX}$" | sort -V)
-          else
-            EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | sort -V)
-          fi
-          
-          if [ -z "$EXISTING_TAGS" ]; then
-            # First tag for this prefix and suffix combination
-            if [ -n "$TAG_SUFFIX" ]; then
-              NEW_TAG="${TAG_PREFIX}.1${TAG_SUFFIX}"
-            else
-              NEW_TAG="${TAG_PREFIX}.1"
-            fi
-            echo "First tag for prefix/suffix combination: $NEW_TAG"
-          else
-            # Find the highest tag and increment
-            HIGHEST_TAG=$(echo "$EXISTING_TAGS" | tail -1)
-            echo "Highest existing tag: $HIGHEST_TAG"
-            
-            # Extract the number and increment
-            if [ -n "$TAG_SUFFIX" ]; then
-              # Remove both prefix and suffix to get the number
-              LAST_NUMBER=$(echo $HIGHEST_TAG | sed "s/^${TAG_PREFIX}\.//" | sed "s/${TAG_SUFFIX}$//" )
-            else
-              LAST_NUMBER=$(echo $HIGHEST_TAG | cut -d'.' -f2)
-            fi
-            NEW_NUMBER=$((LAST_NUMBER + 1))
-            
-            if [ -n "$TAG_SUFFIX" ]; then
-              NEW_TAG="${TAG_PREFIX}.${NEW_NUMBER}${TAG_SUFFIX}"
-            else
-              NEW_TAG="${TAG_PREFIX}.${NEW_NUMBER}"
-            fi
-            echo "New tag calculated: $NEW_TAG"
-          fi
-          
-          # Create the tag
-          git tag -a $NEW_TAG -m "$NEW_TAG"
-          echo "Tag $NEW_TAG created"
-          
-          # Push the tag
-          git push origin $NEW_TAG
-          echo "Tag $NEW_TAG pushed to origin"
-          
-          TAG_TO_USE=$NEW_TAG
-        fi
-        
-        echo "Final tag used: $TAG_TO_USE"
-        
-        # Ensure the tag is pushed (in case it was created but not pushed)
-        git push origin $TAG_TO_USE || echo "Tag $TAG_TO_USE already exists on remote"
-        
-        # Set output for potential use in other steps
-        echo "tag=$TAG_TO_USE" >> $GITHUB_OUTPUT
-        
-        # Create a summary
-        echo "## Release Tag Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- **Branch**: $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tag Prefix**: $TAG_PREFIX" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tag Suffix**: $TAG_SUFFIX" >> $GITHUB_STEP_SUMMARY
-        echo "- **Commit**: $CURRENT_COMMIT" >> $GITHUB_STEP_SUMMARY
-        echo "- **Tag**: $TAG_TO_USE" >> $GITHUB_STEP_SUMMARY
-        
-        if [ "$TAG_TO_USE" = "$NEW_TAG" ]; then
-          echo "- **Action**: New tag created and pushed" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "- **Action**: Using existing tag (no new tag needed)" >> $GITHUB_STEP_SUMMARY
-        fi
+        "${{ github.action_path }}/create-tag.sh" \
+          --branch "${{ inputs.branch }}" \
+          --tag-prefix "${{ inputs.tag_prefix }}" \
+          --tag-suffix "${{ inputs.tag_suffix }}" \
+          --git-dir "${{ github.workspace }}" \
+          --github-token "${{ inputs.github_token }}" \
+          --output-file "$GITHUB_OUTPUT" \
+          --summary-file "$GITHUB_STEP_SUMMARY"
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
