@@ -83,7 +83,13 @@ runs:
           TAG_PATTERN="${TAG_PREFIX}.*${TAG_SUFFIX}"
         fi
         
-        EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | if [ -n "$TAG_SUFFIX" ]; then grep "${TAG_SUFFIX}$"; else cat; fi | head -1 || true)
+        if [ -n "$TAG_SUFFIX" ]; then
+          # Escape special characters in TAG_SUFFIX for grep
+          ESCAPED_SUFFIX=$(echo "$TAG_SUFFIX" | sed 's/[[\.*^$()+?{|]/\\&/g')
+          EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | grep -- "${ESCAPED_SUFFIX}$" | head -1 || true)
+        else
+          EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | head -1 || true)
+        fi
         
         if [ -n "$EXISTING_BRANCH_TAG" ]; then
           echo "Existing tag found on current commit: $EXISTING_BRANCH_TAG"
@@ -93,7 +99,13 @@ runs:
           echo "No tag with format ${TAG_PREFIX}.*${TAG_SUFFIX} found on current commit, creating new tag"
           
           # List existing tags for this prefix and suffix combination
-          EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | if [ -n "$TAG_SUFFIX" ]; then grep "${TAG_SUFFIX}$"; else cat; fi | sort -V)
+          if [ -n "$TAG_SUFFIX" ]; then
+            # Escape special characters in TAG_SUFFIX for grep
+            ESCAPED_SUFFIX=$(echo "$TAG_SUFFIX" | sed 's/[[\.*^$()+?{|]/\\&/g')
+            EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | grep -- "${ESCAPED_SUFFIX}$" | sort -V)
+          else
+            EXISTING_TAGS=$(git tag -l "${TAG_PREFIX}.*" | sort -V)
+          fi
           
           if [ -z "$EXISTING_TAGS" ]; then
             # First tag for this prefix and suffix combination
