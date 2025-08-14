@@ -30,8 +30,8 @@ inputs:
   github_token:
     description: 'GitHub token with contents:write permission'
     required: true
-  generate_release_notes:
-    description: 'Generate release notes with commits when a new tag is created'
+  generate_commit_links:
+    description: 'Generate commit links when a new tag is created'
     required: false
     default: 'false'
 
@@ -51,9 +51,9 @@ outputs:
   tag_created:
     description: 'Whether a new tag was created (true) or an existing tag was used (false)'
     value: ${{ steps.create-tag.outputs.tag_created }}
-  release_notes:
-    description: 'Generated release notes with commits (when generate_release_notes is true)'
-    value: ${{ steps.release_notes.outputs.notes }}
+  commit_links:
+    description: 'Generated commit links (when generate_commit_links is true)'
+    value: ${{ steps.commit_links.outputs.links }}
 
 runs:
   using: 'composite'
@@ -79,12 +79,12 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
 
-    - name: Generate release notes
-      if: ${{ inputs.generate_release_notes == 'true' && steps.create-tag.outputs.tag_created == 'true' }}
-      id: release_notes
+    - name: Generate commit links
+      if: ${{ inputs.generate_commit_links == 'true' && steps.create-tag.outputs.tag_created == 'true' }}
+      id: commit_links
       shell: bash
       run: |
-        "${{ github.action_path }}/generate-release-notes.sh" \
+        "${{ github.action_path }}/generate-commit-links.sh" \
           --tag "${{ steps.create-tag.outputs.tag }}" \
           --previous-tag "${{ steps.create-tag.outputs.previous_tag }}" \
           --repository "${{ github.repository }}" \
