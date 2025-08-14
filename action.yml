@@ -30,6 +30,10 @@ inputs:
   github_token:
     description: 'GitHub token with contents:write permission'
     required: true
+  generate_release_notes:
+    description: 'Generate release notes with commits when a new tag is created'
+    required: false
+    default: 'false'
 
 outputs:
   tag:
@@ -47,6 +51,9 @@ outputs:
   tag_created:
     description: 'Whether a new tag was created (true) or an existing tag was used (false)'
     value: ${{ steps.create-tag.outputs.tag_created }}
+  release_notes:
+    description: 'Generated release notes with commits (when generate_release_notes is true)'
+    value: ${{ steps.release_notes.outputs.notes }}
 
 runs:
   using: 'composite'
@@ -71,3 +78,14 @@ runs:
           --summary-file "$GITHUB_STEP_SUMMARY"
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
+
+    - name: Generate release notes
+      if: ${{ inputs.generate_release_notes == 'true' && steps.create-tag.outputs.tag_created == 'true' }}
+      id: release_notes
+      shell: bash
+      run: |
+        "${{ github.action_path }}/generate-release-notes.sh" \
+          --tag "${{ steps.create-tag.outputs.tag }}" \
+          --previous-tag "${{ steps.create-tag.outputs.previous_tag }}" \
+          --repository "${{ github.repository }}" \
+          --output-file "$GITHUB_OUTPUT"
