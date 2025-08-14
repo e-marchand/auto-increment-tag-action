@@ -35,6 +35,15 @@ outputs:
   tag:
     description: 'The tag that was created or found'
     value: ${{ steps.create-tag.outputs.tag }}
+  tag_commit:
+    description: 'The commit hash of the current tag'
+    value: ${{ steps.create-tag.outputs.tag_commit }}
+  previous_tag:
+    description: 'The previous tag before the current one'
+    value: ${{ steps.create-tag.outputs.previous_tag }}
+  previous_tag_commit:
+    description: 'The commit hash of the previous tag'
+    value: ${{ steps.create-tag.outputs.previous_tag_commit }}
 
 runs:
   using: 'composite'

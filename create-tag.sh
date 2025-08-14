@@ -98,6 +98,8 @@ else
   EXISTING_BRANCH_TAG=$(git tag --points-at $CURRENT_COMMIT | grep "^${TAG_PREFIX}\." | head -1 || true)
 fi
 
+PREVIOUS_TAG=""
+
 if [ -n "$EXISTING_BRANCH_TAG" ]; then
   echo "Existing tag found on current commit: $EXISTING_BRANCH_TAG"
   TAG_TO_USE=$EXISTING_BRANCH_TAG
@@ -125,6 +127,7 @@ else
   else
     # Find the highest tag and increment
     HIGHEST_TAG=$(echo "$EXISTING_TAGS" | tail -1)
+    PREVIOUS_TAG=$HIGHEST_TAG
     echo "Highest existing tag: $HIGHEST_TAG"
     
     # Extract the number and increment
@@ -160,11 +163,35 @@ echo "Final tag used: $TAG_TO_USE"
 # Ensure the tag is pushed (in case it was created but not pushed)
 git push origin $TAG_TO_USE || echo "Tag $TAG_TO_USE already exists on remote"
 
+# Get commit hashes
+TAG_COMMIT=$(git rev-list -n 1 $TAG_TO_USE)
+if [ -n "$PREVIOUS_TAG" ]; then
+  PREVIOUS_TAG_COMMIT=$(git rev-list -n 1 $PREVIOUS_TAG)
+else
+  PREVIOUS_TAG_COMMIT=""
+fi
+
 # Set output for potential use in other steps
 if [ -n "$OUTPUT_FILE" ]; then
   echo "tag=$TAG_TO_USE" >> "$OUTPUT_FILE"
+  echo "tag_commit=$TAG_COMMIT" >> "$OUTPUT_FILE"
+  if [ -n "$PREVIOUS_TAG" ]; then
+    echo "previous_tag=$PREVIOUS_TAG" >> "$OUTPUT_FILE"
+    echo "previous_tag_commit=$PREVIOUS_TAG_COMMIT" >> "$OUTPUT_FILE"
+  else
+    echo "previous_tag=" >> "$OUTPUT_FILE"
+    echo "previous_tag_commit=" >> "$OUTPUT_FILE"
+  fi
 else
   echo "OUTPUT: tag=$TAG_TO_USE"
+  echo "OUTPUT: tag_commit=$TAG_COMMIT"
+  if [ -n "$PREVIOUS_TAG" ]; then
+    echo "OUTPUT: previous_tag=$PREVIOUS_TAG"
+    echo "OUTPUT: previous_tag_commit=$PREVIOUS_TAG_COMMIT"
+  else
+    echo "OUTPUT: previous_tag="
+    echo "OUTPUT: previous_tag_commit="
+  fi
 fi
 
 # Create a summary
@@ -172,8 +199,17 @@ SUMMARY_CONTENT="## Release Tag Summary
 - **Branch**: $BRANCH_NAME
 - **Tag Prefix**: $TAG_PREFIX
 - **Tag Suffix**: $TAG_SUFFIX
-- **Commit**: $CURRENT_COMMIT
-- **Tag**: $TAG_TO_USE"
+- **Tag**: $TAG_TO_USE
+- **Tag Commit**: $TAG_COMMIT"
+
+if [ -n "$PREVIOUS_TAG" ]; then
+  SUMMARY_CONTENT="$SUMMARY_CONTENT
+- **Previous Tag**: $PREVIOUS_TAG
+- **Previous Tag Commit**: $PREVIOUS_TAG_COMMIT"
+else
+  SUMMARY_CONTENT="$SUMMARY_CONTENT
+- **Previous Tag**: None (first tag)"
+fi
 
 if [ "$TAG_TO_USE" = "$NEW_TAG" ]; then
   SUMMARY_CONTENT="$SUMMARY_CONTENT
