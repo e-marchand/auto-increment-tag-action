@@ -44,6 +44,9 @@ outputs:
   previous_tag_commit:
     description: 'The commit hash of the previous tag'
     value: ${{ steps.create-tag.outputs.previous_tag_commit }}
+  tag_created:
+    description: 'Whether a new tag was created (true) or an existing tag was used (false)'
+    value: ${{ steps.create-tag.outputs.tag_created }}
 
 runs:
   using: 'composite'

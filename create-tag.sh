@@ -99,6 +99,7 @@ else
 fi
 
 PREVIOUS_TAG=""
+TAG_CREATED="false"
 
 if [ -n "$EXISTING_BRANCH_TAG" ]; then
   echo "Existing tag found on current commit: $EXISTING_BRANCH_TAG"
@@ -150,6 +151,7 @@ else
   # Create the tag
   git tag -a $NEW_TAG -m "$NEW_TAG"
   echo "Tag $NEW_TAG created"
+  TAG_CREATED="true"
   
   # Push the tag
   git push origin $NEW_TAG
@@ -175,6 +177,7 @@ fi
 if [ -n "$OUTPUT_FILE" ]; then
   echo "tag=$TAG_TO_USE" >> "$OUTPUT_FILE"
   echo "tag_commit=$TAG_COMMIT" >> "$OUTPUT_FILE"
+  echo "tag_created=$TAG_CREATED" >> "$OUTPUT_FILE"
   if [ -n "$PREVIOUS_TAG" ]; then
     echo "previous_tag=$PREVIOUS_TAG" >> "$OUTPUT_FILE"
     echo "previous_tag_commit=$PREVIOUS_TAG_COMMIT" >> "$OUTPUT_FILE"
@@ -185,6 +188,7 @@ if [ -n "$OUTPUT_FILE" ]; then
 else
   echo "OUTPUT: tag=$TAG_TO_USE"
   echo "OUTPUT: tag_commit=$TAG_COMMIT"
+  echo "OUTPUT: tag_created=$TAG_CREATED"
   if [ -n "$PREVIOUS_TAG" ]; then
     echo "OUTPUT: previous_tag=$PREVIOUS_TAG"
     echo "OUTPUT: previous_tag_commit=$PREVIOUS_TAG_COMMIT"
@@ -200,7 +204,8 @@ SUMMARY_CONTENT="## Release Tag Summary
 - **Tag Prefix**: $TAG_PREFIX
 - **Tag Suffix**: $TAG_SUFFIX
 - **Tag**: $TAG_TO_USE
-- **Tag Commit**: $TAG_COMMIT"
+- **Tag Commit**: $TAG_COMMIT
+- **Tag Created**: $TAG_CREATED"
 
 if [ -n "$PREVIOUS_TAG" ]; then
   SUMMARY_CONTENT="$SUMMARY_CONTENT
